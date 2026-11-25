@@ -1,6 +1,7 @@
 package com.astra.vpn.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -88,7 +89,7 @@ private fun SettingsCard(onClick: (() -> Unit)? = null, content: @Composable () 
         .clip(RoundedCornerShape(18.dp))
         .background(AstraSurfaceElevated)
         .padding(16.dp)
-        .let { if (onClick != null) it.then(androidx.compose.foundation.clickable(onClick = onClick)) else it }
+        .let { if (onClick != null) it.clickable(onClick = onClick) else it }
 
     Box(modifier) { content() }
 }
