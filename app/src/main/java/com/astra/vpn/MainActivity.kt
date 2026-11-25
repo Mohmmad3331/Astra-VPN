@@ -1,6 +1,8 @@
 package com.astra.vpn
 
+import android.content.ActivityNotFoundException
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -39,9 +41,23 @@ class MainActivity : ComponentActivity() {
                 AstraNavHost(
                     onLaunchEnginePermission = { intent, onGranted ->
                         onEnginePermissionResult = onGranted
-                        enginePermissionLauncher.launch(intent)
+                        try {
+                            enginePermissionLauncher.launch(intent)
+                        } catch (e: ActivityNotFoundException) {
+                            Toast.makeText(this, "اپ OpenVPN for Android پیدا نشد", Toast.LENGTH_LONG).show()
+                        }
                     },
-                    onLaunchInstallEngine = { intent -> installEngineLauncher.launch(intent) }
+                    onLaunchInstallEngine = { intent ->
+                        try {
+                            installEngineLauncher.launch(intent)
+                        } catch (e: ActivityNotFoundException) {
+                            Toast.makeText(
+                                this,
+                                "مرورگر یا فروشگاهی برای باز کردن لینک پیدا نشد. نصب کن: de.blinkt.openvpn",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    }
                 )
             }
         }

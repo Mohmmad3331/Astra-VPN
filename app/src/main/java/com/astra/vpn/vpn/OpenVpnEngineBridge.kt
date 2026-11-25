@@ -74,8 +74,18 @@ class OpenVpnEngineBridge(private val appContext: Context) : VpnEngineBridge {
         false
     }
 
+    /**
+     * Uses the https Play Store link rather than a market:// URI — the
+     * latter only resolves when the Play Store app itself is installed,
+     * and silently does nothing otherwise (which is what was happening).
+     * The https link works either way: it opens in the Play Store app
+     * if present, or in any browser if not.
+     */
     fun installEngineAppIntent(): Intent =
-        Intent(Intent.ACTION_VIEW, android.net.Uri.parse("market://details?id=$OPENVPN_PACKAGE"))
+        Intent(
+            Intent.ACTION_VIEW,
+            android.net.Uri.parse("https://play.google.com/store/apps/details?id=$OPENVPN_PACKAGE")
+        )
 
     private fun bindIfNeeded() {
         if (service != null) return
