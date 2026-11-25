@@ -38,6 +38,9 @@ class ConnectionViewModel(application: Application) : AndroidViewModel(applicati
     private val _selectedServer = MutableStateFlow<VpnServer?>(null)
     val selectedServer: StateFlow<VpnServer?> = _selectedServer
 
+    private val _serverLoadError = MutableStateFlow<String?>(null)
+    val serverLoadError: StateFlow<String?> = _serverLoadError
+
     init {
         refreshServers()
     }
@@ -45,13 +48,17 @@ class ConnectionViewModel(application: Application) : AndroidViewModel(applicati
     fun refreshServers() {
         viewModelScope.launch {
             _loading.value = true
+            _serverLoadError.value = null
             repo.fetchServers().onSuccess { list ->
                 _servers.value = list
                 if (_selectedServer.value == null) {
                     _selectedServer.value = list.firstOrNull()
                 }
+                if (list.isEmpty()) {
+                    _serverLoadError.value = "لیست سرور خالی برگشت. دوباره تلاش کن."
+                }
             }.onFailure {
-                _connectionState.value = ConnectionState.Error(it.message ?: "خطا در دریافت لیست سرورها")
+                _serverLoadError.value = "دریافت لیست سرورها ناموفق بود: ${it.message ?: it::class.simpleName}"
             }
             _loading.value = false
         }

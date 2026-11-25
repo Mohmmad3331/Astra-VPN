@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- VPN Gate's public server-list API is HTTP-only. Android blocks
+         cleartext traffic by default for apps targeting API 28+, which
+         silently failed every request here (empty server list, no error
+         shown). Allow cleartext specifically for this host only. -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">vpngate.net</domain>
+    </domain-config>
+</network-security-config>

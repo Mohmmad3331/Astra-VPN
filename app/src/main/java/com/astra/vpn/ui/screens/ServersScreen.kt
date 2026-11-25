@@ -25,6 +25,7 @@ fun ServersScreen(
     servers: List<VpnServer>,
     selectedServer: VpnServer?,
     loading: Boolean,
+    loadError: String?,
     onRefresh: () -> Unit,
     onSelect: (VpnServer) -> Unit
 ) {
@@ -49,6 +50,20 @@ fun ServersScreen(
         if (loading && servers.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = AstraIndigo)
+            }
+        } else if (servers.isEmpty() && loadError != null) {
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(loadError, color = AstraRed, style = MaterialTheme.typography.bodyLarge)
+                Spacer(Modifier.height(16.dp))
+                TextButton(onClick = onRefresh) {
+                    Text("تلاش دوباره", color = AstraCyan)
+                }
             }
         } else {
             LazyColumn(

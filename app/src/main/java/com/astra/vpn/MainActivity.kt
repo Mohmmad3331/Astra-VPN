@@ -78,6 +78,7 @@ private fun AstraNavHost(
     val connectionState by viewModel.connectionState.collectAsState()
     val servers by viewModel.servers.collectAsState()
     val loading by viewModel.loading.collectAsState()
+    val serverLoadError by viewModel.serverLoadError.collectAsState()
     val selectedServer by viewModel.selectedServer.collectAsState()
     val permissionRequest by viewModel.permissionRequest.collectAsState()
 
@@ -96,7 +97,7 @@ private fun AstraNavHost(
         AlertDialog(
             onDismissRequest = { showInstallEngineDialog = false },
             title = { Text("نیاز به موتور اتصال") },
-            text = { Text("Astra VPN برای برقراری تونل واقعی از اپ متن‌باز «OpenVPN for Android» استفاده می‌کند. لطفاً یک‌بار آن را نصب کنید.") },
+            text = { Text("Astra VPN برای برقراری تونل واقعی از اپ متن‌باز «OpenVPN for Android» استفاده می‌کند. لطفاً یک‌بار آن را از F-Droid نصب کنید (نه گوگل پلی، که از ایران در دسترس نیست).") },
             confirmButton = {
                 TextButton(onClick = {
                     showInstallEngineDialog = false
@@ -152,6 +153,7 @@ private fun AstraNavHost(
                     servers = servers,
                     selectedServer = selectedServer,
                     loading = loading,
+                    loadError = serverLoadError,
                     onRefresh = { viewModel.refreshServers() },
                     onSelect = {
                         viewModel.selectServer(it)

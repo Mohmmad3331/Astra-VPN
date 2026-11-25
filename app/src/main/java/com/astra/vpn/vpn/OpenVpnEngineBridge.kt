@@ -75,16 +75,16 @@ class OpenVpnEngineBridge(private val appContext: Context) : VpnEngineBridge {
     }
 
     /**
-     * Uses the https Play Store link rather than a market:// URI — the
-     * latter only resolves when the Play Store app itself is installed,
-     * and silently does nothing otherwise (which is what was happening).
-     * The https link works either way: it opens in the Play Store app
-     * if present, or in any browser if not.
+     * Points at F-Droid rather than Google Play: Play Store is blocked
+     * for Iranian accounts/IPs under US sanctions regardless of which
+     * URI scheme is used, so that link never worked. F-Droid's package
+     * page is reachable and has a direct "Download APK" button, no
+     * F-Droid app or account required.
      */
     fun installEngineAppIntent(): Intent =
         Intent(
             Intent.ACTION_VIEW,
-            android.net.Uri.parse("https://play.google.com/store/apps/details?id=$OPENVPN_PACKAGE")
+            android.net.Uri.parse("https://f-droid.org/packages/$OPENVPN_PACKAGE/")
         )
 
     private fun bindIfNeeded() {
