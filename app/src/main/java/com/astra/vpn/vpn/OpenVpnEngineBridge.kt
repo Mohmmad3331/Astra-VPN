@@ -31,6 +31,7 @@ class OpenVpnEngineBridge(private val appContext: Context) : VpnEngineBridge {
     private var connectedSince: Long = 0L
     private var pendingConfig: String? = null
     private var pendingServerName: String = ""
+    private var callbackRegistered = false
 
     private val statusCallback = object : IOpenVPNStatusCallback.Stub() {
         override fun newStatus(uuid: String?, state: String?, message: String?, level: String?) {
@@ -53,7 +54,9 @@ class OpenVpnEngineBridge(private val appContext: Context) : VpnEngineBridge {
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
             service = IOpenVPNAPIService.Stub.asInterface(binder)
-            service?.registerStatusCallback(statusCallback)
+            // NOTE: do not call registerStatusCallback() here. The engine app
+            // throws SecurityException for every call except prepare() until
+            // the user has approved this app, which used to crash Astra VPN.
             val config = pendingConfig
             if (config != null) {
                 pendingConfig = null
@@ -63,6 +66,7 @@ class OpenVpnEngineBridge(private val appContext: Context) : VpnEngineBridge {
 
         override fun onServiceDisconnected(name: ComponentName?) {
             service = null
+            callbackRegistered = false
         }
     }
 
@@ -90,7 +94,15 @@ class OpenVpnEngineBridge(private val appContext: Context) : VpnEngineBridge {
     private fun bindIfNeeded() {
         if (service != null) return
         val intent = Intent(API_ACTION).apply { setPackage(OPENVPN_PACKAGE) }
-        appContext.bindService(intent, connection, Context.BIND_AUTO_CREATE)
+        val ok = try {
+            appContext.bindService(intent, connection, Context.BIND_AUTO_CREATE)
+        } catch (e: Throwable) {
+            false
+        }
+        if (!ok) {
+            pendingConfig = null
+            onStateCallback?.invoke(ConnectionState.Error("اتصال به اپ OpenVPN for Android ممکن نشد"))
+        }
     }
 
     override fun connect(server: VpnServer, ovpnConfig: String, onState: (ConnectionState) -> Unit) {
@@ -124,6 +136,11 @@ class OpenVpnEngineBridge(private val appContext: Context) : VpnEngineBridge {
                 requestPermission(appPermissionIntent) { startAfterBind(ovpnConfig) }
                 return
             }
+            // Authorised now: safe to listen for status updates (once).
+            if (!callbackRegistered) {
+                svc.registerStatusCallback(statusCallback)
+                callbackRegistered = true
+            }
             // Step 2 — the system-level VpnService consent dialog, requested
             // through the engine app since it owns the TUN interface.
             val vpnServiceIntent = svc.prepareVPNService()
@@ -132,7 +149,7 @@ class OpenVpnEngineBridge(private val appContext: Context) : VpnEngineBridge {
                 return
             }
             svc.startVPN(ovpnConfig)
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             onStateCallback?.invoke(ConnectionState.Error(e.message ?: "اتصال برقرار نشد"))
         }
     }

@@ -100,5 +100,5 @@ class VpnGateRepository {
 
     /** Decodes the embedded base64 .ovpn profile for a server into raw config text. */
     fun decodeOvpnConfig(server: VpnServer): String =
-        String(Base64.getDecoder().decode(server.openVpnConfigBase64))
+        String(Base64.getMimeDecoder().decode(server.openVpnConfigBase64))
 }

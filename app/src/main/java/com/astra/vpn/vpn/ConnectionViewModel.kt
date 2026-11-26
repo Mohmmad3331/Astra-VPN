@@ -84,15 +84,20 @@ class ConnectionViewModel(application: Application) : AndroidViewModel(applicati
 
     fun toggleConnection() {
         val server = _selectedServer.value ?: return
-        if (engine.isConnected()) {
-            engine.disconnect()
-            _connectionState.value = ConnectionState.Disconnected
-        } else {
-            val config = repo.decodeOvpnConfig(server)
-            engine.connect(server, config) { state ->
-                _connectionState.value = state
-                engine.pendingPermissionIntent?.let { _permissionRequest.value = it }
+        try {
+            val state = _connectionState.value
+            if (engine.isConnected() || state is ConnectionState.Connecting) {
+                engine.disconnect()
+                _connectionState.value = ConnectionState.Disconnected
+            } else {
+                val config = repo.decodeOvpnConfig(server)
+                engine.connect(server, config) { st ->
+                    _connectionState.value = st
+                    engine.pendingPermissionIntent?.let { _permissionRequest.value = it }
+                }
             }
+        } catch (e: Throwable) {
+            _connectionState.value = ConnectionState.Error(e.message ?: "خطای ناشناخته در اتصال")
         }
     }
 
