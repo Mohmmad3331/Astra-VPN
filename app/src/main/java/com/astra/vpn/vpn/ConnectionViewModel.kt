@@ -115,12 +115,13 @@ class ConnectionViewModel(application: Application) : AndroidViewModel(applicati
 
         connectJob = viewModelScope.launch {
             _connectionState.value = ConnectionState.Connecting
-            // User's pick first, then the fastest servers that expose a TCP port.
+            // User's pick first, then every other server: TCP relays (SSTP-capable)
+            // fastest first, then the rest fastest first.
             val picked = _selectedServer.value!!
             val others = _servers.value
-                .filter { it.ip != picked.ip && it.pingMs < 500 && it.transport?.first == "tcp" }
-                .sortedWith(compareBy({ it.filterResistanceRank }, { -it.speedBps }))
-            val candidates = (listOf(picked) + others).take(MAX_ATTEMPTS)
+                .filter { it.ip != picked.ip }
+                .sortedWith(compareBy({ if (it.transport?.first == "tcp") 0 else 1 }, { -it.speedBps }))
+            val candidates = listOf(picked) + others
 
             for ((i, server) in candidates.withIndex()) {
                 _selectedServer.value = server
@@ -147,7 +148,7 @@ class ConnectionViewModel(application: Application) : AndroidViewModel(applicati
             }
             _attemptInfo.value = null
             _connectionState.value = ConnectionState.Error(
-                "هیچ‌کدام از ${candidates.size} سرور جواب ندادند. دوباره امتحان کن یا لیست را بروزرسانی کن."
+                "هیچ‌کدام از ${candidates.size} سرور جواب ندادند. لیست را بروزرسانی کن و دوباره امتحان کن."
             )
         }
     }
@@ -179,8 +180,7 @@ class ConnectionViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     companion object {
-        const val MAX_ATTEMPTS = 6
-        const val ATTEMPT_TIMEOUT_MS = 25_000L
+        const val ATTEMPT_TIMEOUT_MS = 15_000L
         const val DEFAULT_MIRROR = "http://v-dot-pn-ams2.opengw.net:34637"
     }
 }

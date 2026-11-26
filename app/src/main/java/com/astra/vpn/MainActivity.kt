@@ -8,18 +8,16 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Public
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.astra.vpn.ui.components.AstraBackdrop
+import com.astra.vpn.ui.components.AstraBottomBar
+import com.astra.vpn.ui.components.AstraTab
 import com.astra.vpn.ui.screens.HomeScreen
 import com.astra.vpn.ui.screens.ServersScreen
 import com.astra.vpn.ui.screens.SettingsScreen
-import com.astra.vpn.ui.theme.AstraSurface
 import com.astra.vpn.ui.theme.AstraTheme
 import com.astra.vpn.vpn.ConnectionViewModel
 
@@ -50,14 +48,12 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private enum class Tab(val label: String) { HOME("خانه"), SERVERS("سرورها"), SETTINGS("تنظیمات") }
-
 @Composable
 private fun AstraNavHost(
     onLaunchEnginePermission: (android.content.Intent, () -> Unit) -> Unit
 ) {
     val viewModel: ConnectionViewModel = viewModel()
-    var currentTab by remember { mutableStateOf(Tab.HOME) }
+    var currentTab by remember { mutableStateOf(AstraTab.HOME) }
     val appContext = androidx.compose.ui.platform.LocalContext.current.applicationContext
     var crashText by remember {
         mutableStateOf(
@@ -103,41 +99,21 @@ private fun AstraNavHost(
         }
     }
 
+    AstraBackdrop {
     Scaffold(
-        containerColor = AstraSurface,
-        bottomBar = {
-            NavigationBar(containerColor = AstraSurface) {
-                NavigationBarItem(
-                    selected = currentTab == Tab.HOME,
-                    onClick = { currentTab = Tab.HOME },
-                    icon = { Icon(Icons.Filled.Shield, contentDescription = null) },
-                    label = { Text(Tab.HOME.label) }
-                )
-                NavigationBarItem(
-                    selected = currentTab == Tab.SERVERS,
-                    onClick = { currentTab = Tab.SERVERS },
-                    icon = { Icon(Icons.Filled.Public, contentDescription = null) },
-                    label = { Text(Tab.SERVERS.label) }
-                )
-                NavigationBarItem(
-                    selected = currentTab == Tab.SETTINGS,
-                    onClick = { currentTab = Tab.SETTINGS },
-                    icon = { Icon(Icons.Filled.Settings, contentDescription = null) },
-                    label = { Text(Tab.SETTINGS.label) }
-                )
-            }
-        }
+        containerColor = androidx.compose.ui.graphics.Color.Transparent,
+        bottomBar = { AstraBottomBar(currentTab, { currentTab = it }) }
     ) { padding ->
         Box(Modifier.padding(padding)) {
             when (currentTab) {
-                Tab.HOME -> HomeScreen(
+                AstraTab.HOME -> HomeScreen(
                     connectionState = connectionState,
                     selectedServer = selectedServer,
                     attemptInfo = attemptInfo,
                     onToggle = { viewModel.toggleConnection() },
-                    onPickServer = { currentTab = Tab.SERVERS }
+                    onPickServer = { currentTab = AstraTab.SERVERS }
                 )
-                Tab.SERVERS -> ServersScreen(
+                AstraTab.SERVERS -> ServersScreen(
                     servers = servers,
                     selectedServer = selectedServer,
                     loading = loading,
@@ -145,22 +121,24 @@ private fun AstraNavHost(
                     onRefresh = { viewModel.refreshServers() },
                     onSelect = {
                         viewModel.selectServer(it)
-                        currentTab = Tab.HOME
+                        currentTab = AstraTab.HOME
                     }
                 )
-                Tab.SETTINGS -> SettingsScreen(
+                AstraTab.SETTINGS -> SettingsScreen(
                     mirrorHost = mirrorDraft,
                     onMirrorHostChange = { mirrorDraft = it },
                     onApplyMirror = {
                         viewModel.setMirrorHost(mirrorDraft)
                         viewModel.refreshServers()
-                        currentTab = Tab.SERVERS
+                        currentTab = AstraTab.SERVERS
                     },
                     splitTunnelOnlySelected = splitTunnelOnlySelected,
                     onSplitTunnelToggle = { splitTunnelOnlySelected = it },
-                    onManageApps = { /* TODO: app picker */ }
+                    onManageApps = { /* TODO: app picker */ },
+                    onBack = { currentTab = AstraTab.HOME }
                 )
             }
+        }
         }
     }
 }
