@@ -21,3 +21,6 @@ app. Astra VPN talks to a separately installed copy of the "OpenVPN for
 Android" app over this API — see `README.md`.
 
 Reference: https://github.com/schwabe/ics-openvpn/blob/master/doc/API.md
+
+## Open SSTP Client
+SSTP/PPP core vendored from https://github.com/kittoku/Open-SSTP-Client (MIT). See app/src/main/java/kittoku/osc/LICENSE-Open-SSTP-Client.txt.

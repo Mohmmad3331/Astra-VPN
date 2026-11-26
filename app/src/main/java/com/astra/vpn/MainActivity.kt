@@ -28,10 +28,6 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.StartActivityForResult()
     ) { onEnginePermissionResult?.invoke() }
 
-    private val installEngineLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { /* user returns from Play Store either way */ }
-
     private var onEnginePermissionResult: (() -> Unit)? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -44,18 +40,7 @@ class MainActivity : ComponentActivity() {
                         try {
                             enginePermissionLauncher.launch(intent)
                         } catch (e: ActivityNotFoundException) {
-                            Toast.makeText(this, "اپ OpenVPN for Android پیدا نشد", Toast.LENGTH_LONG).show()
-                        }
-                    },
-                    onLaunchInstallEngine = { intent ->
-                        try {
-                            installEngineLauncher.launch(intent)
-                        } catch (e: ActivityNotFoundException) {
-                            Toast.makeText(
-                                this,
-                                "مرورگر یا فروشگاهی برای باز کردن لینک پیدا نشد. نصب کن: de.blinkt.openvpn",
-                                Toast.LENGTH_LONG
-                            ).show()
+                            Toast.makeText(this, "درخواست مجوز VPN باز نشد", Toast.LENGTH_LONG).show()
                         }
                     }
                 )
@@ -68,12 +53,10 @@ private enum class Tab(val label: String) { HOME("خانه"), SERVERS("سرور�
 
 @Composable
 private fun AstraNavHost(
-    onLaunchEnginePermission: (android.content.Intent, () -> Unit) -> Unit,
-    onLaunchInstallEngine: (android.content.Intent) -> Unit
+    onLaunchEnginePermission: (android.content.Intent, () -> Unit) -> Unit
 ) {
     val viewModel: ConnectionViewModel = viewModel()
     var currentTab by remember { mutableStateOf(Tab.HOME) }
-    var showInstallEngineDialog by remember { mutableStateOf(false) }
 
     val connectionState by viewModel.connectionState.collectAsState()
     val servers by viewModel.servers.collectAsState()
@@ -90,27 +73,10 @@ private fun AstraNavHost(
     LaunchedEffect(permissionRequest) {
         permissionRequest?.let { intent ->
             onLaunchEnginePermission(intent) {
-                viewModel.onEnginePermissionGranted()
+                viewModel.onVpnPermissionResult()
                 viewModel.clearPermissionRequest()
             }
         }
-    }
-
-    if (showInstallEngineDialog) {
-        AlertDialog(
-            onDismissRequest = { showInstallEngineDialog = false },
-            title = { Text("نیاز به موتور اتصال") },
-            text = { Text("Astra VPN برای برقراری تونل واقعی از اپ متن‌باز «OpenVPN for Android» استفاده می‌کند. لطفاً یک‌بار آن را از F-Droid نصب کنید (نه گوگل پلی، که از ایران در دسترس نیست).") },
-            confirmButton = {
-                TextButton(onClick = {
-                    showInstallEngineDialog = false
-                    onLaunchInstallEngine(viewModel.installEngineAppIntent())
-                }) { Text("نصب") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showInstallEngineDialog = false }) { Text("بعداً") }
-            }
-        )
     }
 
     Scaffold(
@@ -144,13 +110,7 @@ private fun AstraNavHost(
                     connectionState = connectionState,
                     selectedServer = selectedServer,
                     attemptInfo = attemptInfo,
-                    onToggle = {
-                        if (!viewModel.engineAppInstalled) {
-                            showInstallEngineDialog = true
-                        } else {
-                            viewModel.toggleConnection()
-                        }
-                    },
+                    onToggle = { viewModel.toggleConnection() },
                     onPickServer = { currentTab = Tab.SERVERS }
                 )
                 Tab.SERVERS -> ServersScreen(

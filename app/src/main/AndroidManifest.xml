@@ -4,16 +4,6 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
-    <!-- Android 11+ visibility: we need to see/bind the OpenVPN for Android
-         engine app and offer to open its Play Store listing if missing. -->
-    <queries>
-        <package android:name="de.blinkt.openvpn" />
-        <intent>
-            <action android:name="android.intent.action.VIEW" />
-            <data android:scheme="market" />
-        </intent>
-    </queries>
-
     <application
         android:name=".AstraApp"
         android:allowBackup="true"
@@ -34,5 +24,17 @@
             </intent-filter>
         </activity>
 
+        <service
+            android:name="kittoku.osc.service.SstpVpnService"
+            android:exported="true"
+            android:foregroundServiceType="specialUse"
+            android:permission="android.permission.BIND_VPN_SERVICE">
+            <intent-filter>
+                <action android:name="android.net.VpnService" />
+            </intent-filter>
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="vpn" />
+        </service>
     </application>
 </manifest>

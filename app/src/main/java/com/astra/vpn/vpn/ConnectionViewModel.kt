@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.astra.vpn.data.VpnGateRepository
 import com.astra.vpn.data.VpnServer
+import kittoku.osc.AstraStatus
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,17 +30,22 @@ class ConnectionViewModel(application: Application) : AndroidViewModel(applicati
         prefs.edit().putString("mirror_host", value).apply()
     }
 
-    private val engine = OpenVpnEngineBridge(application.applicationContext)
-
-    val engineAppInstalled: Boolean get() = engine.isEngineAppInstalled()
-    fun installEngineAppIntent() = engine.installEngineAppIntent()
-    fun onEnginePermissionGranted() = engine.onPermissionGranted()
+    private val engine = SstpEngine(application.applicationContext)
 
     private val _permissionRequest = MutableStateFlow<Intent?>(null)
     val permissionRequest: StateFlow<Intent?> = _permissionRequest
 
     fun clearPermissionRequest() {
         _permissionRequest.value = null
+    }
+
+    /** Called after the system VPN consent dialog closes. */
+    fun onVpnPermissionResult() {
+        if (engine.permissionIntent() == null) {
+            toggleConnection()
+        } else {
+            _connectionState.value = ConnectionState.Error("مجوز VPN داده نشد.")
+        }
     }
 
     private val _servers = MutableStateFlow<List<VpnServer>>(emptyList())
@@ -91,34 +97,36 @@ class ConnectionViewModel(application: Application) : AndroidViewModel(applicati
 
     fun toggleConnection() {
         val state = _connectionState.value
-        if (engine.isConnected() || state is ConnectionState.Connecting || connectJob?.isActive == true) {
+        if (state is ConnectionState.Connected || state is ConnectionState.Connecting || connectJob?.isActive == true) {
             connectJob?.cancel()
             connectJob = null
             _attemptInfo.value = null
-            try { engine.disconnect() } catch (_: Throwable) {}
+            engine.stop()
             _connectionState.value = ConnectionState.Disconnected
             return
         }
         if (_selectedServer.value == null) return
 
+        engine.permissionIntent()?.let {
+            _permissionRequest.value = it
+            return
+        }
+
         connectJob = viewModelScope.launch {
-            // User's pick first, then the most filter-resistant fast servers.
+            _connectionState.value = ConnectionState.Connecting
+            // User's pick first, then the fastest servers that expose a TCP port.
             val picked = _selectedServer.value!!
             val others = _servers.value
-                .filter { it.ip != picked.ip && it.pingMs < 500 }
+                .filter { it.ip != picked.ip && it.pingMs < 500 && it.transport?.first == "tcp" }
                 .sortedWith(compareBy({ it.filterResistanceRank }, { -it.speedBps }))
             val candidates = (listOf(picked) + others).take(MAX_ATTEMPTS)
 
             for ((i, server) in candidates.withIndex()) {
                 _selectedServer.value = server
-                _attemptInfo.value = "تلاش ${i + 1} از ${candidates.size} · ${server.countryLong}" +
-                    (server.transport?.let { " (${it.first.uppercase()}:${it.second})" } ?: "")
+                val port = server.transport?.takeIf { it.first == "tcp" }?.second ?: 443
+                _attemptInfo.value = "تلاش ${i + 1} از ${candidates.size} · ${server.countryLong}"
                 val ok = try {
-                    val config = repo.decodeOvpnConfig(server)
-                    engine.connect(server, config) { st ->
-                        _connectionState.value = st
-                        engine.pendingPermissionIntent?.let { _permissionRequest.value = it }
-                    }
+                    engine.start(server.ip, port)
                     awaitConnected()
                 } catch (e: kotlinx.coroutines.CancellationException) {
                     throw e
@@ -127,30 +135,50 @@ class ConnectionViewModel(application: Application) : AndroidViewModel(applicati
                 }
                 if (ok) {
                     _attemptInfo.value = null
+                    _connectionState.value = ConnectionState.Connected(
+                        server.countryLong.ifBlank { server.hostName }, server.flagEmoji, System.currentTimeMillis()
+                    )
+                    watchConnection(server)
                     return@launch
                 }
-                try { engine.disconnect() } catch (_: Throwable) {}
-                delay(1200)
+                engine.stop()
+                delay(1500)
             }
             _attemptInfo.value = null
             _connectionState.value = ConnectionState.Error(
-                "هیچ‌کدام از $MAX_ATTEMPTS سرور جواب ندادند. دوباره امتحان کن یا لیست را بروزرسانی کن."
+                "هیچ‌کدام از ${candidates.size} سرور جواب ندادند. دوباره امتحان کن یا لیست را بروزرسانی کن."
             )
         }
     }
 
-    /** Waits for Connected; the clock is paused while a permission dialog is pending. */
     private suspend fun awaitConnected(): Boolean {
         var waitedMs = 0L
         while (waitedMs < ATTEMPT_TIMEOUT_MS) {
-            val st = _connectionState.value
-            if (st is ConnectionState.Connected) return true
-            val waitingForUser = engine.pendingPermissionIntent != null
-            if (st is ConnectionState.Error && !waitingForUser) return false
-            delay(500)
-            if (!waitingForUser) waitedMs += 500
+            when (engine.status.value) {
+                is AstraStatus.Connected -> return true
+                is AstraStatus.Failed -> return false
+                else -> {}
+            }
+            delay(300)
+            waitedMs += 300
         }
         return false
+    }
+
+    /** After success, reflect later drops (server closed, network lost) in the UI. */
+    private fun watchConnection(server: VpnServer) {
+        viewModelScope.launch {
+            engine.status.collect { st ->
+                if (st is AstraStatus.Failed || st is AstraStatus.Idle) {
+                    if (_connectionState.value is ConnectionState.Connected) {
+                        _connectionState.value = if (st is AstraStatus.Failed)
+                            ConnectionState.Error("اتصال قطع شد (${st.reason})")
+                        else ConnectionState.Disconnected
+                    }
+                    cancel()
+                }
+            }
+        }
     }
 
     companion object {
