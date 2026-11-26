@@ -1,9 +1,18 @@
 package com.astra.vpn.data
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.suspendCancellableCoroutine
+import okhttp3.Call
+import okhttp3.Callback
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.Response
+import java.io.IOException
+import kotlin.coroutines.resume
 import java.util.Base64
 import java.util.concurrent.TimeUnit
 
@@ -23,22 +32,45 @@ import java.util.concurrent.TimeUnit
 class VpnGateRepository {
 
     private val client = OkHttpClient.Builder()
-        .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(10, TimeUnit.SECONDS)
+        .connectTimeout(8, TimeUnit.SECONDS)
+        .readTimeout(12, TimeUnit.SECONDS)
         .build()
 
+    /**
+     * Tries every source at the same time and returns the first that
+     * works: the official host (often DNS-poisoned under national
+     * filtering), the user's mirror, then built-in fallbacks. If all fail,
+     * the error lists each source's failure so it can be diagnosed.
+     */
     suspend fun fetchServers(mirrorHost: String? = null): Result<List<VpnServer>> =
         withContext(Dispatchers.IO) {
-            val primary = fetchFrom("http://www.vpngate.net/api/iphone/")
-            if (primary.isSuccess) return@withContext primary
+            val urls = buildList {
+                add("http://www.vpngate.net/api/iphone/")
+                mirrorHost?.trim()?.takeIf { it.isNotEmpty() }?.let { add(buildMirrorApiUrl(it)) }
+                add("https://gate.sabaat.ir/api/iphone/")
+                add("http://gate.sabaat.ir/api/iphone/")
+            }.distinct()
 
-            val mirror = mirrorHost?.trim()?.takeIf { it.isNotEmpty() }
-            if (mirror == null) return@withContext primary
-
-            val mirrorUrl = buildMirrorApiUrl(mirror)
-            val fromMirror = fetchFrom(mirrorUrl)
-            if (fromMirror.isSuccess) fromMirror else primary
+            coroutineScope {
+                val results = Channel<Pair<String, Result<List<VpnServer>>>>(urls.size)
+                val jobs = urls.map { url ->
+                    launch { results.send(url to fetchFrom(url)) }
+                }
+                val errors = mutableListOf<String>()
+                repeat(urls.size) {
+                    val (url, res) = results.receive()
+                    if (res.isSuccess) {
+                        jobs.forEach { it.cancel() }
+                        return@coroutineScope res
+                    }
+                    errors += "${hostOf(url)}: ${res.exceptionOrNull()?.message ?: "خطا"}"
+                }
+                Result.failure(Exception(errors.joinToString("\n")))
+            }
         }
+
+    private fun hostOf(url: String) =
+        Regex("^https?://([^/]+)").find(url)?.groupValues?.get(1) ?: url
 
     /** Turns whatever the user pasted (full URL, host:port, bare host) into an /api/iphone/ URL. */
     private fun buildMirrorApiUrl(input: String): String {
@@ -52,25 +84,37 @@ class VpnGateRepository {
         return "$schemeAndAuthority/api/iphone/"
     }
 
-    private fun fetchFrom(url: String): Result<List<VpnServer>> {
-        return try {
-            val request = Request.Builder().url(url).build()
-            client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) {
-                    return Result.failure(Exception("HTTP ${response.code} از $url"))
+    /** Cancellable fetch: cancelling the coroutine cancels the OkHttp call immediately. */
+    private suspend fun fetchFrom(url: String): Result<List<VpnServer>> =
+        suspendCancellableCoroutine { cont ->
+            val call = client.newCall(Request.Builder().url(url).build())
+            cont.invokeOnCancellation { call.cancel() }
+            call.enqueue(object : Callback {
+                override fun onFailure(call: Call, e: IOException) {
+                    if (cont.isActive) cont.resume(Result.failure(e))
                 }
-                val body = response.body?.string().orEmpty()
-                val servers = parseCsv(body)
-                if (servers.isEmpty()) {
-                    Result.failure(Exception("پاسخ خالی از $url"))
-                } else {
-                    Result.success(servers)
+
+                override fun onResponse(call: Call, response: Response) {
+                    val result = try {
+                        response.use {
+                            if (!it.isSuccessful) {
+                                Result.failure(Exception("HTTP ${it.code}"))
+                            } else {
+                                val servers = parseCsv(it.body?.string().orEmpty())
+                                if (servers.isEmpty()) {
+                                    Result.failure(Exception("پاسخ بدون سرور/کانفیگ"))
+                                } else {
+                                    Result.success(servers)
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Result.failure(e)
+                    }
+                    if (cont.isActive) cont.resume(result)
                 }
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
+            })
         }
-    }
 
     private fun parseCsv(raw: String): List<VpnServer> {
         val lines = raw.lines()
