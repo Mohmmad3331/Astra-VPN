@@ -2,6 +2,7 @@ package com.astra.vpn.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -19,6 +20,9 @@ import com.astra.vpn.ui.theme.*
  */
 @Composable
 fun SettingsScreen(
+    mirrorHost: String,
+    onMirrorHostChange: (String) -> Unit,
+    onApplyMirror: () -> Unit,
     splitTunnelOnlySelected: Boolean,
     onSplitTunnelToggle: (Boolean) -> Unit,
     onManageApps: () -> Unit
@@ -27,6 +31,7 @@ fun SettingsScreen(
         Modifier
             .fillMaxSize()
             .background(AstraBackground)
+            .verticalScroll(androidx.compose.foundation.rememberScrollState())
             .padding(20.dp)
     ) {
         Text("تنظیمات", style = MaterialTheme.typography.headlineMedium, color = AstraTextPrimary)
@@ -64,6 +69,31 @@ fun SettingsScreen(
                     color = AstraTextSecondary,
                     style = MaterialTheme.typography.bodyMedium
                 )
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        SettingsCard {
+            Column {
+                Text("آدرس آینه (Mirror)", color = AstraTextPrimary, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "اگه لیست سرورها بالا نیومد (vpngate.net فیلته)، آدرس یه آینه رو اینجا بذار.",
+                    color = AstraTextSecondary,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Spacer(Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = mirrorHost,
+                    onValueChange = onMirrorHostChange,
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("http://host:port") }
+                )
+                Spacer(Modifier.height(8.dp))
+                TextButton(onClick = onApplyMirror) {
+                    Text("ذخیره و بروزرسانی لیست", color = AstraCyan)
+                }
             }
         }
 

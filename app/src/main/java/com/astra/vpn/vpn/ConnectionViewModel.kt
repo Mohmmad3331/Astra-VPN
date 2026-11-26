@@ -13,6 +13,20 @@ import kotlinx.coroutines.launch
 class ConnectionViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repo = VpnGateRepository()
+    private val prefs = application.getSharedPreferences("astra_prefs", android.content.Context.MODE_PRIVATE)
+
+    // Mirror host used when www.vpngate.net is filtered. Defaults to a
+    // node mirror that was reachable; rotates over time, so it's editable.
+    private val _mirrorHost = MutableStateFlow(
+        prefs.getString("mirror_host", DEFAULT_MIRROR) ?: DEFAULT_MIRROR
+    )
+    val mirrorHost: StateFlow<String> = _mirrorHost
+
+    fun setMirrorHost(value: String) {
+        _mirrorHost.value = value
+        prefs.edit().putString("mirror_host", value).apply()
+    }
+
     private val engine = OpenVpnEngineBridge(application.applicationContext)
 
     val engineAppInstalled: Boolean get() = engine.isEngineAppInstalled()
@@ -49,7 +63,7 @@ class ConnectionViewModel(application: Application) : AndroidViewModel(applicati
         viewModelScope.launch {
             _loading.value = true
             _serverLoadError.value = null
-            repo.fetchServers().onSuccess { list ->
+            repo.fetchServers(_mirrorHost.value).onSuccess { list ->
                 _servers.value = list
                 if (_selectedServer.value == null) {
                     _selectedServer.value = list.firstOrNull()
@@ -80,5 +94,9 @@ class ConnectionViewModel(application: Application) : AndroidViewModel(applicati
                 engine.pendingPermissionIntent?.let { _permissionRequest.value = it }
             }
         }
+    }
+
+    companion object {
+        const val DEFAULT_MIRROR = "http://v-dot-pn-ams2.opengw.net:34637"
     }
 }

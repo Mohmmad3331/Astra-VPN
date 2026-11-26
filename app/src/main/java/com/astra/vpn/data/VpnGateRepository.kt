@@ -9,9 +9,16 @@ import java.util.concurrent.TimeUnit
 
 /**
  * Fetches the public server list from the VPN Gate academic project's
- * official CSV API (http://www.vpngate.net/api/iphone/). This is a
- * publicly documented, open endpoint intended for exactly this kind
- * of client — no account, no scraping, no spoofing involved.
+ * official CSV API (http://www.vpngate.net/api/iphone/) — publicly
+ * documented, open, no account, no scraping, no spoofing involved.
+ *
+ * www.vpngate.net itself can be blocked by national filtering. VPN Gate's
+ * own anti-censorship design accounts for this: every public relay node
+ * also mirrors the exact same CSV at its own host/port, under the same
+ * /api/iphone/ path — these "mirror URLs" rotate daily and get posted to
+ * VPN Gate's own mailing list / Google Groups for people whose access to
+ * the main site is blocked. If the primary host fails, this falls back
+ * to a mirror host the user supplies in Settings.
  */
 class VpnGateRepository {
 
@@ -20,18 +27,45 @@ class VpnGateRepository {
         .readTimeout(10, TimeUnit.SECONDS)
         .build()
 
-    suspend fun fetchServers(): Result<List<VpnServer>> = withContext(Dispatchers.IO) {
-        try {
-            val request = Request.Builder()
-                .url("http://www.vpngate.net/api/iphone/")
-                .build()
+    suspend fun fetchServers(mirrorHost: String? = null): Result<List<VpnServer>> =
+        withContext(Dispatchers.IO) {
+            val primary = fetchFrom("http://www.vpngate.net/api/iphone/")
+            if (primary.isSuccess) return@withContext primary
 
+            val mirror = mirrorHost?.trim()?.takeIf { it.isNotEmpty() }
+            if (mirror == null) return@withContext primary
+
+            val mirrorUrl = buildMirrorApiUrl(mirror)
+            val fromMirror = fetchFrom(mirrorUrl)
+            if (fromMirror.isSuccess) fromMirror else primary
+        }
+
+    /** Turns whatever the user pasted (full URL, host:port, bare host) into an /api/iphone/ URL. */
+    private fun buildMirrorApiUrl(input: String): String {
+        var url = input
+        if (!url.startsWith("http://") && !url.startsWith("https://")) {
+            url = "http://$url"
+        }
+        // Strip any path the user included (e.g. the node's "/en/" status page)
+        // and point at the mirrored CSV endpoint instead.
+        val schemeAndAuthority = Regex("^(https?://[^/]+)").find(url)?.groupValues?.get(1) ?: url
+        return "$schemeAndAuthority/api/iphone/"
+    }
+
+    private fun fetchFrom(url: String): Result<List<VpnServer>> {
+        return try {
+            val request = Request.Builder().url(url).build()
             client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
-                    return@withContext Result.failure(Exception("HTTP ${response.code}"))
+                    return Result.failure(Exception("HTTP ${response.code} از $url"))
                 }
                 val body = response.body?.string().orEmpty()
-                Result.success(parseCsv(body))
+                val servers = parseCsv(body)
+                if (servers.isEmpty()) {
+                    Result.failure(Exception("پاسخ خالی از $url"))
+                } else {
+                    Result.success(servers)
+                }
             }
         } catch (e: Exception) {
             Result.failure(e)

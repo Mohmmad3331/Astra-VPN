@@ -80,6 +80,8 @@ private fun AstraNavHost(
     val loading by viewModel.loading.collectAsState()
     val serverLoadError by viewModel.serverLoadError.collectAsState()
     val selectedServer by viewModel.selectedServer.collectAsState()
+    val savedMirror by viewModel.mirrorHost.collectAsState()
+    var mirrorDraft by remember(savedMirror) { mutableStateOf(savedMirror) }
     val permissionRequest by viewModel.permissionRequest.collectAsState()
 
     var splitTunnelOnlySelected by remember { mutableStateOf(false) }
@@ -161,6 +163,13 @@ private fun AstraNavHost(
                     }
                 )
                 Tab.SETTINGS -> SettingsScreen(
+                    mirrorHost = mirrorDraft,
+                    onMirrorHostChange = { mirrorDraft = it },
+                    onApplyMirror = {
+                        viewModel.setMirrorHost(mirrorDraft)
+                        viewModel.refreshServers()
+                        currentTab = Tab.SERVERS
+                    },
                     splitTunnelOnlySelected = splitTunnelOnlySelected,
                     onSplitTunnelToggle = { splitTunnelOnlySelected = it },
                     onManageApps = { /* TODO: app picker */ }
