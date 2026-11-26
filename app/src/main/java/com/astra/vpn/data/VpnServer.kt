@@ -18,6 +18,23 @@ data class VpnServer(
     val openVpnConfigBase64: String
 ) {
     val speedMbps: Double get() = speedBps / 1_000_000.0
+
+    /** ("tcp"|"udp", port) read from the embedded .ovpn, or null if unreadable. */
+    val transport: Pair<String, Int>? by lazy {
+        try {
+            val text = String(java.util.Base64.getMimeDecoder().decode(openVpnConfigBase64))
+            val proto = Regex("(?m)^proto\\s+(\\w+)").find(text)?.groupValues?.get(1)?.lowercase()
+            val port = Regex("(?m)^remote\\s+\\S+\\s+(\\d+)").find(text)?.groupValues?.get(1)?.toInt()
+            if (proto != null && port != null) proto.take(3) to port else null
+        } catch (e: Exception) { null }
+    }
+
+    /** Lower is better: TCP/443 looks like HTTPS and survives filtering best. */
+    val filterResistanceRank: Int get() = when {
+        transport?.first == "tcp" && transport?.second == 443 -> 0
+        transport?.first == "tcp" -> 1
+        else -> 2
+    }
     val flagEmoji: String get() = countryCodeToFlag(countryShort)
 }
 

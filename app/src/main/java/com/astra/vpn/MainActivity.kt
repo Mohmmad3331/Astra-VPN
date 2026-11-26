@@ -80,6 +80,7 @@ private fun AstraNavHost(
     val loading by viewModel.loading.collectAsState()
     val serverLoadError by viewModel.serverLoadError.collectAsState()
     val selectedServer by viewModel.selectedServer.collectAsState()
+    val attemptInfo by viewModel.attemptInfo.collectAsState()
     val savedMirror by viewModel.mirrorHost.collectAsState()
     var mirrorDraft by remember(savedMirror) { mutableStateOf(savedMirror) }
     val permissionRequest by viewModel.permissionRequest.collectAsState()
@@ -142,6 +143,7 @@ private fun AstraNavHost(
                 Tab.HOME -> HomeScreen(
                     connectionState = connectionState,
                     selectedServer = selectedServer,
+                    attemptInfo = attemptInfo,
                     onToggle = {
                         if (!viewModel.engineAppInstalled) {
                             showInstallEngineDialog = true

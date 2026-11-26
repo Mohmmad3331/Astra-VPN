@@ -28,6 +28,7 @@ import com.astra.vpn.vpn.ConnectionState
 fun HomeScreen(
     connectionState: ConnectionState,
     selectedServer: VpnServer?,
+    attemptInfo: String? = null,
     onToggle: () -> Unit,
     onPickServer: () -> Unit
 ) {
@@ -80,6 +81,19 @@ fun HomeScreen(
                 style = MaterialTheme.typography.titleLarge,
                 color = AstraTextPrimary
             )
+
+            if (attemptInfo != null) {
+                Spacer(Modifier.height(8.dp))
+                Text(attemptInfo, color = AstraTextSecondary, style = MaterialTheme.typography.bodyMedium)
+            }
+            if (connectionState is ConnectionState.Error) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    connectionState.message,
+                    color = AstraRed,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
 
             Spacer(Modifier.height(32.dp))
 

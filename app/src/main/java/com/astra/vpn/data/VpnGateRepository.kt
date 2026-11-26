@@ -45,6 +45,11 @@ class VpnGateRepository {
     suspend fun fetchServers(mirrorHost: String? = null): Result<List<VpnServer>> =
         withContext(Dispatchers.IO) {
             val urls = buildList {
+                // Cached copy refreshed every 30 min by a GitHub Actions job
+                // (GitHub runners can reach vpngate.net; the user's network can't).
+                add("https://raw.githubusercontent.com/Mohmmad3331/Astra-VPN/data/servers.csv")
+                add("https://cdn.jsdelivr.net/gh/Mohmmad3331/Astra-VPN@data/servers.csv")
+                add("https://fastly.jsdelivr.net/gh/Mohmmad3331/Astra-VPN@data/servers.csv")
                 add("http://www.vpngate.net/api/iphone/")
                 mirrorHost?.trim()?.takeIf { it.isNotEmpty() }?.let { add(buildMirrorApiUrl(it)) }
                 add("https://gate.sabaat.ir/api/iphone/")
