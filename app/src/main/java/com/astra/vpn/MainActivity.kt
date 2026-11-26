@@ -7,6 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Settings
@@ -57,6 +58,29 @@ private fun AstraNavHost(
 ) {
     val viewModel: ConnectionViewModel = viewModel()
     var currentTab by remember { mutableStateOf(Tab.HOME) }
+    val appContext = androidx.compose.ui.platform.LocalContext.current.applicationContext
+    var crashText by remember {
+        mutableStateOf(
+            java.io.File(appContext.filesDir, AstraApp.CRASH_FILE).takeIf { it.exists() }?.readText()
+        )
+    }
+    crashText?.let { text ->
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text("گزارش کرش قبلی") },
+            text = {
+                androidx.compose.foundation.rememberScrollState().let { sc ->
+                    Column(Modifier.verticalScroll(sc)) { Text(text, style = MaterialTheme.typography.bodySmall) }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    java.io.File(appContext.filesDir, AstraApp.CRASH_FILE).delete()
+                    crashText = null
+                }) { Text("بستن") }
+            }
+        )
+    }
 
     val connectionState by viewModel.connectionState.collectAsState()
     val servers by viewModel.servers.collectAsState()
