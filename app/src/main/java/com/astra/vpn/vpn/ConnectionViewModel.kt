@@ -11,6 +11,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class ConnectionViewModel(application: Application) : AndroidViewModel(application) {
@@ -168,15 +169,11 @@ class ConnectionViewModel(application: Application) : AndroidViewModel(applicati
     /** After success, reflect later drops (server closed, network lost) in the UI. */
     private fun watchConnection(server: VpnServer) {
         viewModelScope.launch {
-            engine.status.collect { st ->
-                if (st is AstraStatus.Failed || st is AstraStatus.Idle) {
-                    if (_connectionState.value is ConnectionState.Connected) {
-                        _connectionState.value = if (st is AstraStatus.Failed)
-                            ConnectionState.Error("اتصال قطع شد (${st.reason})")
-                        else ConnectionState.Disconnected
-                    }
-                    cancel()
-                }
+            val st = engine.status.first { it is AstraStatus.Failed || it is AstraStatus.Idle }
+            if (_connectionState.value is ConnectionState.Connected) {
+                _connectionState.value = if (st is AstraStatus.Failed)
+                    ConnectionState.Error("اتصال قطع شد (${st.reason})")
+                else ConnectionState.Disconnected
             }
         }
     }

@@ -11,11 +11,6 @@ import com.astra.vpn.R
 import kittoku.osc.Result
 import kittoku.osc.SharedBridge
 import kittoku.osc.Where
-import kittoku.osc.activity.BLANK_ACTIVITY_TYPE_SAVE_CERT
-import kittoku.osc.activity.BlankActivity
-import kittoku.osc.activity.EXTRA_KEY_CERT
-import kittoku.osc.activity.EXTRA_KEY_FILENAME
-import kittoku.osc.activity.EXTRA_KEY_TYPE
 import kittoku.osc.extension.capacityAfterLimit
 import kittoku.osc.extension.slide
 import kittoku.osc.extension.toIntAsUByte
@@ -350,37 +345,9 @@ internal class SSLTerminal(private val bridge: SharedBridge) {
         return log
     }
 
+    @Suppress("UNUSED_PARAMETER")
     private fun notifyUntrustedCertificate(cert: Certificate) {
-        val basename = if (cert is X509Certificate) {
-            cert.subjectX500Principal.name
-        } else {
-            "server"
-        }
-
-        val saveIntent = Intent(bridge.service, BlankActivity::class.java).also {
-            it.putExtra(EXTRA_KEY_TYPE, BLANK_ACTIVITY_TYPE_SAVE_CERT)
-            it.putExtra(EXTRA_KEY_CERT, cert.encoded)
-            it.putExtra(EXTRA_KEY_FILENAME, "$basename.crt")
-        }
-
-        val pendingIntent = PendingIntent.getActivity(
-            bridge.service,
-            0,
-            saveIntent,
-            PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        NotificationCompat.Builder(bridge.service, NOTIFICATION_CERTIFICATE_CHANNEL).also {
-            it.priority = NotificationCompat.PRIORITY_DEFAULT
-            it.setSmallIcon(R.drawable.ic_baseline_vpn_lock_24)
-            it.setAutoCancel(true)
-            it.setContentTitle("You can download the untrusted server certificate")
-            it.setContentText("WARNING: untrusted certificates could have your device vulnerable")
-            it.setStyle(NotificationCompat.BigTextStyle())
-            it.setContentIntent(pendingIntent)
-        }.build().also {
-            bridge.service.tryNotify(it, NOTIFICATION_CERTIFICATE_ID)
-        }
+        // Astra VPN: cert-export UI is not bundled.
     }
 
     internal fun getSession(): SSLSession {
