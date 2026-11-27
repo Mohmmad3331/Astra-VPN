@@ -54,12 +54,6 @@ private fun AstraNavHost(
 ) {
     val viewModel: ConnectionViewModel = viewModel()
     var currentTab by remember { mutableStateOf(AstraTab.HOME) }
-    val appContext = androidx.compose.ui.platform.LocalContext.current.applicationContext
-    var crashText by remember {
-        mutableStateOf(
-            java.io.File(appContext.filesDir, AstraApp.CRASH_FILE).takeIf { it.exists() }?.readText()
-        )
-    }
     crashText?.let { text ->
         AlertDialog(
             onDismissRequest = {},

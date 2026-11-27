@@ -6,19 +6,10 @@ import java.io.File
 class AstraApp : Application() {
     override fun onCreate() {
         super.onCreate()
-        val previous = Thread.getDefaultUncaughtExceptionHandler()
-        Thread.setDefaultUncaughtExceptionHandler { thread, error ->
-            try {
-                File(filesDir, CRASH_FILE).writeText(
-                    "thread: ${thread.name}\n" + error.stackTraceToString().take(3500)
-                )
-            } catch (_: Throwable) {
-            }
-            previous?.uncaughtException(thread, error)
+        // Drop any crash report left by earlier builds.
+        try {
+            File(filesDir, "last_crash.txt").delete()
+        } catch (_: Throwable) {
         }
-    }
-
-    companion object {
-        const val CRASH_FILE = "last_crash.txt"
     }
 }
