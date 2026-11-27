@@ -41,6 +41,7 @@ fun HomeScreen(
     connectionState: ConnectionState,
     selectedServer: VpnServer?,
     attemptInfo: String? = null,
+    autoSelect: Boolean = true,
     onToggle: () -> Unit,
     onPickServer: () -> Unit
 ) {
@@ -94,7 +95,7 @@ fun HomeScreen(
             }
 
             Spacer(Modifier.weight(1f))
-            ServerCard(selectedServer, onPickServer)
+            ServerCard(selectedServer, autoSelect && !isConnected, onPickServer)
             Spacer(Modifier.height(12.dp))
             QuickConnectBanner(isConnected || isConnecting, onToggle)
             Spacer(Modifier.height(8.dp))
@@ -185,18 +186,24 @@ private fun PowerButton(isConnected: Boolean, isConnecting: Boolean, size: andro
 }
 
 @Composable
-private fun ServerCard(server: VpnServer?, onClick: () -> Unit) {
+private fun ServerCard(server: VpnServer?, showAuto: Boolean, onClick: () -> Unit) {
     GlassCard(Modifier.fillMaxWidth(), onClick = onClick) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            FlagCircle(server?.flagEmoji)
+            FlagCircle(if (showAuto) null else server?.flagEmoji)
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
                 Text(
-                    server?.countryLong ?: "در حال یافتن بهترین سرور…",
+                    if (showAuto) "انتخاب خودکار" else server?.countryLong ?: "در حال یافتن بهترین سرور…",
                     color = AstraTextPrimary,
                     style = MaterialTheme.typography.titleMedium
                 )
-                if (server != null) {
+                if (showAuto) {
+                    Text(
+                        "سریع‌ترین سرور موجود انتخاب می‌شود",
+                        color = AstraTextSecondary,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                } else if (server != null) {
                     Spacer(Modifier.height(2.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         SignalBars(server.pingMs)

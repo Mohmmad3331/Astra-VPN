@@ -83,6 +83,7 @@ private fun AstraNavHost(
     val loading by viewModel.loading.collectAsState()
     val serverLoadError by viewModel.serverLoadError.collectAsState()
     val selectedServer by viewModel.selectedServer.collectAsState()
+    val autoSelect by viewModel.autoSelect.collectAsState()
     val attemptInfo by viewModel.attemptInfo.collectAsState()
     val savedMirror by viewModel.mirrorHost.collectAsState()
     var mirrorDraft by remember(savedMirror) { mutableStateOf(savedMirror) }
@@ -110,6 +111,7 @@ private fun AstraNavHost(
                     connectionState = connectionState,
                     selectedServer = selectedServer,
                     attemptInfo = attemptInfo,
+                    autoSelect = autoSelect,
                     onToggle = { viewModel.toggleConnection() },
                     onPickServer = { currentTab = AstraTab.SERVERS }
                 )
@@ -118,8 +120,11 @@ private fun AstraNavHost(
                     selectedServer = selectedServer,
                     loading = loading,
                     loadError = serverLoadError,
+                    autoSelect = autoSelect,
+                    onAutoSelectChange = { viewModel.setAutoSelect(it) },
                     onRefresh = { viewModel.refreshServers() },
                     onSelect = {
+                        viewModel.setAutoSelect(false)
                         viewModel.selectServer(it)
                         currentTab = AstraTab.HOME
                     }

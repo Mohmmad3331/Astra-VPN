@@ -58,6 +58,14 @@ class ConnectionViewModel(application: Application) : AndroidViewModel(applicati
     private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)
     val connectionState: StateFlow<ConnectionState> = _connectionState
 
+    private val _autoSelect = MutableStateFlow(prefs.getBoolean("auto_select", true))
+    val autoSelect: StateFlow<Boolean> = _autoSelect
+
+    fun setAutoSelect(value: Boolean) {
+        _autoSelect.value = value
+        prefs.edit().putBoolean("auto_select", value).apply()
+    }
+
     private val _selectedServer = MutableStateFlow<VpnServer?>(null)
     val selectedServer: StateFlow<VpnServer?> = _selectedServer
 
@@ -115,18 +123,20 @@ class ConnectionViewModel(application: Application) : AndroidViewModel(applicati
 
         connectJob = viewModelScope.launch {
             _connectionState.value = ConnectionState.Connecting
-            // User's pick first, then every other server: TCP relays (SSTP-capable)
-            // fastest first, then the rest fastest first.
             val picked = _selectedServer.value!!
-            val others = _servers.value
-                .filter { it.ip != picked.ip }
-                .sortedWith(compareBy({ if (it.transport?.first == "tcp") 0 else 1 }, { -it.speedBps }))
-            val candidates = listOf(picked) + others
+            val candidates = if (_autoSelect.value) {
+                // Auto: every server, TCP relays (SSTP-capable) fastest first, then the rest.
+                _servers.value.sortedWith(compareBy({ if (it.transport?.first == "tcp") 0 else 1 }, { -it.speedBps }))
+                    .ifEmpty { listOf(picked) }
+            } else {
+                // Manual: only the server the user picked.
+                listOf(picked)
+            }
 
             for ((i, server) in candidates.withIndex()) {
                 _selectedServer.value = server
                 val port = server.transport?.takeIf { it.first == "tcp" }?.second ?: 443
-                _attemptInfo.value = "تلاش ${i + 1} از ${candidates.size} · ${server.countryLong}"
+                _attemptInfo.value = if (candidates.size > 1) "تلاش ${i + 1} از ${candidates.size} · ${server.countryLong}" else server.countryLong
                 val ok = try {
                     engine.start(server.ip, port)
                     awaitConnected()

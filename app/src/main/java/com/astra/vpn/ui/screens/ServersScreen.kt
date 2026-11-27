@@ -1,6 +1,9 @@
 package com.astra.vpn.ui.screens
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -24,6 +27,8 @@ fun ServersScreen(
     selectedServer: VpnServer?,
     loading: Boolean,
     loadError: String?,
+    autoSelect: Boolean,
+    onAutoSelectChange: (Boolean) -> Unit,
     onRefresh: () -> Unit,
     onSelect: (VpnServer) -> Unit
 ) {
@@ -39,6 +44,9 @@ fun ServersScreen(
                 Text(if (loading) "در حال بروزرسانی…" else "بروزرسانی", color = AstraGold)
             }
         }
+
+        ModeSwitch(autoSelect, onAutoSelectChange)
+        Spacer(Modifier.height(8.dp))
 
         if (loading && servers.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -62,7 +70,7 @@ fun ServersScreen(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 items(servers, key = { it.ip }) { server ->
-                    ServerRow(server, server.ip == selectedServer?.ip) { onSelect(server) }
+                    ServerRow(server, !autoSelect && server.ip == selectedServer?.ip) { onSelect(server) }
                 }
                 item { Spacer(Modifier.height(16.dp)) }
             }
@@ -103,5 +111,43 @@ private fun ServerRow(server: VpnServer, isSelected: Boolean, onClick: () -> Uni
                 Icon(Icons.Filled.ChevronLeft, null, tint = AstraGold.copy(alpha = 0.8f))
             }
         }
+    }
+}
+
+@Composable
+private fun ModeSwitch(auto: Boolean, onChange: (Boolean) -> Unit) {
+    GlassCard(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        contentPadding = PaddingValues(4.dp),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp)
+    ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            ModeOption("خودکار (سریع‌ترین)", auto, Modifier.weight(1f)) { onChange(true) }
+            ModeOption("دستی", !auto, Modifier.weight(1f)) { onChange(false) }
+        }
+    }
+}
+
+@Composable
+private fun ModeOption(label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    Box(
+        modifier
+            .clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
+            .background(
+                if (selected) androidx.compose.ui.graphics.Brush.verticalGradient(
+                    listOf(AstraGold.copy(alpha = 0.35f), AstraGold.copy(alpha = 0.10f))
+                ) else androidx.compose.ui.graphics.SolidColor(androidx.compose.ui.graphics.Color.Transparent)
+            )
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            label,
+            color = if (selected) AstraGold else AstraTextSecondary,
+            style = MaterialTheme.typography.labelLarge
+        )
     }
 }
