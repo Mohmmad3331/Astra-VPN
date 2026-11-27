@@ -54,24 +54,6 @@ private fun AstraNavHost(
 ) {
     val viewModel: ConnectionViewModel = viewModel()
     var currentTab by remember { mutableStateOf(AstraTab.HOME) }
-    crashText?.let { text ->
-        AlertDialog(
-            onDismissRequest = {},
-            title = { Text("گزارش کرش قبلی") },
-            text = {
-                androidx.compose.foundation.rememberScrollState().let { sc ->
-                    Column(Modifier.verticalScroll(sc)) { Text(text, style = MaterialTheme.typography.bodySmall) }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    java.io.File(appContext.filesDir, AstraApp.CRASH_FILE).delete()
-                    crashText = null
-                }) { Text("بستن") }
-            }
-        )
-    }
-
     val connectionState by viewModel.connectionState.collectAsState()
     val servers by viewModel.servers.collectAsState()
     val loading by viewModel.loading.collectAsState()
