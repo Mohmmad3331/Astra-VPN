@@ -199,7 +199,7 @@ private fun ServerCard(server: VpnServer?, showAuto: Boolean, onClick: () -> Uni
                 )
                 if (showAuto) {
                     Text(
-                        "سریع‌ترین سرور موجود انتخاب می‌شود",
+                        "سریع‌ترین سرورها به‌ترتیب امتحان می‌شوند",
                         color = AstraTextSecondary,
                         style = MaterialTheme.typography.bodyMedium
                     )
